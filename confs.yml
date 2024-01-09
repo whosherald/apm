@@ -1,0 +1,104 @@
+server {
+    listen 80;
+    server_name kibana.noble-mutuwa.com;
+
+    location / {
+        proxy_pass http://localhost:5601;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+
+
+sudo apt update
+sudo apt install certbot python3-certbot-nginx
+
+sudo certbot --nginx -d kibana.noble-mutuwa.com
+
+
+
+********mrtic beat ***********
+metricbeat.modules:
+- module: system
+  metricsets:
+    - cpu
+    - load
+    - memory
+    - network
+    - process
+    - process_summary
+    - uptime
+    - socket_summary
+  enabled: true
+  period: 10s
+  processes: ['.*']
+
+
+output.elasticsearch:
+  hosts: ["https://localhost:9200"]
+  username: "elastic"
+  password: "Mutuwa"
+  protocol: "https"
+  ssl.certificate_authorities: ["/var/lib/docker/volumes/apm_certs/_data/ca/ca.crt"]
+
+# setup.kibana:
+#   host: "your-kibana-host:5601"
+  # username: "your-kibana-username"
+  # password: "your-kibana-password"
+
+setup.ilm.enabled: false
+setup.template.priority: 100
+
+setup.template.name: "metricbeat"
+setup.template.pattern: "metricbeat-*"
+setup.template.settings:
+  index.number_of_shards: 1
+  index.codec: best_compression
+
+setup.dashboards.enabled: true
+setup.dashboards.directory: "/usr/share/metricbeat/kibana"
+setup.dashboards.retry.enabled: true
+setup.dashboards.retry.interval: 2
+
+setup.dashboards.index: "metricbeat-*"
+
+processors:
+  - add_cloud_metadata:
+  
+# cloud.id: "your-cloud-id"
+# cloud.auth: "your-cloud-auth"
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/metricbeat
+  name: metricbeat.log
+  keepfiles: 7
+  permissions: 0644
+
+
+
+
+auditbeat.modules:
+  - module: auditd
+    audit_rule_files: [ '${path.config}/audit.rules.d/*.conf' ]
+    device: /dev/sda1
+
+output.elasticsearch:
+  hosts: ["https://kibana.noble-mutuwa.com:9200"]
+  username: "elastic"
+  password: "Mutuwa"
+  protocol: "https"
+  ssl.certificate_authorities: ["/var/lib/docker/volumes/apm_certs/_data/ca/ca.crt"]
+
+
+
+
+/var/lib/docker/volumes/apm_certs/_data/ca/
+
+
+curl -X PUT "localhost:9200/.kibana_8.7.1_001/_settings" -H 'Content-Type: application/json' -d '{"settings": {"index.blocks.write": false}}'
